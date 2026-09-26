@@ -29,6 +29,8 @@ const execFileAsync = promisify(execFile);
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const SOUNDS_DIR = path.join(__dirname, 'sounds');
+const TTS_CACHE_DIR = path.join(__dirname, '.tts_cache');
+if (!fs.existsSync(TTS_CACHE_DIR)) fs.mkdirSync(TTS_CACHE_DIR);
 // Pterodactyl-based hosts (WispByte) inject SERVER_PORT into the container; fall back to
 // PORT for everything else, then a sane local default.
 const PORT = process.env.SERVER_PORT || process.env.PORT || 3000;
@@ -187,9 +189,8 @@ function ruleMatches(rule, message) {
 }
 
 // ---------- TTS helpers ----------
-async function synthesizeSpeech(text, { lang = 'en', slow = false } = {}) {
-  const safeText = text && text.trim() ? text.trim() : randomDigitWord();
-  const chunks = await googleTTS.getAllAudioUrls(safeText, { lang, slow, host: 'https://translate.google.com' });
+async function fetchTts(text, lang, slow) {
+  const chunks = await googleTTS.getAllAudioUrls(text, { lang, slow, host: 'https://translate.google.com' });
   const buffers = [];
   for (const { url } of chunks) {
     const res = await fetch(url);
@@ -197,6 +198,25 @@ async function synthesizeSpeech(text, { lang = 'en', slow = false } = {}) {
     buffers.push(Buffer.from(await res.arrayBuffer()));
   }
   return Buffer.concat(buffers);
+}
+
+// The empty-replyText fallback (a spoken random digit) is by far the most repeated TTS request
+// this bot makes, so cache each digit word per lang/speed combo on disk instead of re-hitting
+// google-tts-api's endpoint every single time - saves a network round trip and some CPU on repeats.
+async function getCachedDigitAudio(lang, slow) {
+  const word = randomDigitWord();
+  const cachePath = path.join(TTS_CACHE_DIR, `${lang}_${slow ? 'slow' : 'fast'}_${word}.mp3`);
+  if (fs.existsSync(cachePath)) {
+    return fs.readFileSync(cachePath);
+  }
+  const buffer = await fetchTts(word, lang, slow);
+  fs.writeFileSync(cachePath, buffer);
+  return buffer;
+}
+
+async function synthesizeSpeech(text, { lang = 'en', slow = false } = {}) {
+  if (text && text.trim()) return fetchTts(text.trim(), lang, slow);
+  return getCachedDigitAudio(lang, slow);
 }
 
 async function sendChannelReply(rule, message, text) {
@@ -289,8 +309,11 @@ function createNormalizedResource(sourceStream) {
   return { resource: createAudioResource(pcmStream, { inputType: StreamType.Raw }), transcoder };
 }
 
-// resourceFactory returns a Readable/stream each call (so retries within @discordjs/voice re-read cleanly)
-async function playAudioInVoiceChannel(voiceChannel, resourceFactory, { onDone, onError, stay = false } = {}) {
+// resourceFactory returns a Readable/stream each call (so retries within @discordjs/voice re-read cleanly).
+// normalize=false skips the extra loudnorm ffmpeg pass - used for TTS, which google-tts-api already
+// renders at a consistent level, so the CPU cost of loudness analysis isn't worth paying on a low-CPU
+// host. Soundboard clips (user-uploaded, wildly inconsistent volume) keep normalize=true.
+async function playAudioInVoiceChannel(voiceChannel, resourceFactory, { onDone, onError, stay = false, normalize = true } = {}) {
   const guildId = voiceChannel.guild.id;
   let connection;
   let stopTimer;
@@ -305,9 +328,14 @@ async function playAudioInVoiceChannel(voiceChannel, resourceFactory, { onDone, 
     await entersState(connection, VoiceConnectionStatus.Ready, 10_000);
 
     const player = createAudioPlayer();
-    const built = createNormalizedResource(resourceFactory());
-    const resource = built.resource;
-    transcoder = built.transcoder;
+    let resource;
+    if (normalize) {
+      const built = createNormalizedResource(resourceFactory());
+      resource = built.resource;
+      transcoder = built.transcoder;
+    } else {
+      resource = createAudioResource(resourceFactory(), { inputType: StreamType.Arbitrary });
+    }
     connection.subscribe(player);
     guildActivePlayback.set(guildId, { player, connection });
 
@@ -351,6 +379,7 @@ function queueVoiceReply(rule, message) {
     }
 
     await playAudioInVoiceChannel(voiceChannel, () => Readable.from(buffer), {
+      normalize: false, // TTS output from google-tts-api is already at a consistent level
       onDone: () => addLog(`Rule "${rule.name}" spoke in "${voiceChannel.name}" for ${message.author.username}`),
       onError: (err) => addLog(`ERROR in voice reply for rule "${rule.name}": ${err.message}`),
     });
@@ -551,6 +580,7 @@ async function registerSlashCommands() {
 async function sayInChannel(guild, voiceChannel, text, speakerLabel) {
   const buffer = await synthesizeSpeech(text, { lang: 'en', slow: false });
   queueInGuild(guild.id, () => playAudioInVoiceChannel(voiceChannel, () => Readable.from(buffer), {
+    normalize: false,
     onDone: () => addLog(`/say used by ${speakerLabel} in "${voiceChannel.name}"`),
     onError: (err) => addLog(`ERROR in /say: ${err.message}`),
   }));
@@ -933,3 +963,9 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Dashboard listening on 0.0.0.0:${PORT}`);
   console.log(`Dashboard URL: ${PUBLIC_URL}`);
 });
+
+setInterval(() => {
+  const mem = process.memoryUsage();
+  const mb = (n) => `${(n / 1024 / 1024).toFixed(1)}MB`;
+  console.log(`[memory] rss=${mb(mem.rss)} heapUsed=${mb(mem.heapUsed)} heapTotal=${mb(mem.heapTotal)} external=${mb(mem.external)}`);
+}, 5 * 60 * 1000);
