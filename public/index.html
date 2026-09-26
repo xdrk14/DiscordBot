@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Trigger Bot — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#17181b; --bg-grad: radial-gradient(1200px 600px at 50% -10%, #23253099, transparent), #17181b;
+    --panel:#26282d; --panel2:#1e2024; --panel-hover:#2c2f35;
+    --accent:#5865f2; --accent2:#7983f5; --accent-glow: #5865f255;
+    --text:#e7e9ee; --muted:#95999f; --muted-dim:#6d7178; --border:#33363c; --border-soft:#2a2c31;
+    --green:#23a55a; --red:#f23843; --amber:#f0b232;
+    --radius-lg:16px; --radius-md:12px; --radius-sm:9px;
+    --shadow-card: 0 1px 2px #0000004d, 0 8px 24px -12px #00000066;
+    --shadow-pop: 0 4px 16px -4px #0000006b;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg-grad); color:var(--text); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 48px 20px 80px; }
+
+  h1 { font-size: 24px; font-weight: 800; margin: 0 0 4px; letter-spacing: -.02em; display:flex; align-items:center; gap:10px; }
+  h2 { font-size: 16px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  .section-head { display:flex; align-items:center; justify-content:space-between; margin-bottom: 18px; }
+  .section-head .desc { font-size:12px; color:var(--muted); font-weight:400; margin-top:2px; }
+  .sub { color: var(--muted); margin-bottom: 32px; font-size: 13.5px; }
+
+  .card { background: linear-gradient(180deg, var(--panel), var(--panel2)); border: 1px solid var(--border-soft); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 18px; box-shadow: var(--shadow-card); }
+
+  label { display:block; font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; letter-spacing: .06em; font-weight: 700; }
+
+  select, input[type=text], button {
+    width: 100%; padding: 11px 13px; border-radius: var(--radius-sm); border: none; font-size: 14px;
+    font-family: inherit; transition: border-color .15s, background .15s, box-shadow .15s, transform .1s;
+  }
+  select, input[type=text] {
+    background: var(--panel2); color: var(--text); margin-bottom: 14px; border: 1px solid var(--border);
+  }
+  select:hover, input[type=text]:hover { border-color: #47494f; }
+  select:focus, input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  input[type=text]::placeholder { color: var(--muted-dim); }
+
+  .toggle-row { display:flex; align-items:center; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
+  .switch { position: relative; width: 44px; height: 24px; flex: 0 0 auto; }
+  .switch input { opacity:0; width:0; height:0; }
+  .slider { position:absolute; cursor:pointer; inset:0; background:#3a3c42; border-radius:24px; transition:.2s; }
+  .slider:before { position:absolute; content:""; height:18px; width:18px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.2s; box-shadow: 0 1px 3px #0000004d; }
+  input:checked + .slider { background: var(--accent); }
+  input:checked + .slider:before { transform: translateX(20px); }
+
+  button { cursor: pointer; font-weight: 600; letter-spacing: -.01em; }
+  button:active { transform: scale(.97); }
+  button.save { background: linear-gradient(180deg, var(--accent2), var(--accent)); color: white; box-shadow: 0 4px 14px -4px var(--accent-glow); }
+  button.save:hover { filter: brightness(1.08); }
+  button.add { background: var(--panel2); color: var(--text); margin-bottom: 16px; border: 1px solid var(--border); }
+  button.add:hover { background: var(--panel-hover); border-color: #4a4d54; }
+  button.remove { background: #f2384322; color:#f23843; width: auto; padding: 7px 14px; font-size: 12px; border: 1px solid #f2384333; }
+  button.remove:hover { background:#f2384338; }
+  button:disabled { opacity:.45; cursor:default; }
+
+  .log { background: var(--panel2); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: 14px; font-family: "SF Mono", "Cascadia Code", monospace; font-size: 12px; max-height: 200px; overflow-y:auto; color:#b5bac1; line-height:1.6; }
+  .log div { margin-bottom: 3px; }
+  .log div:first-child { color: var(--text); }
+
+  .pill { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.02em; }
+  .pill::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .pill.on { background:#23a55a1f; color:#2dc16e; }
+  .pill.off { background:#f238431f; color:#f2384f; }
+
+  .rule { background: var(--panel2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px; margin-bottom: 14px; transition: border-color .15s; }
+  .rule:hover { border-color: #45484f; }
+  .rule-head { display:flex; align-items:center; gap: 10px; margin-bottom: 16px; }
+  .rule-head input[type=text] { margin-bottom: 0; flex: 1; font-weight: 700; font-size: 14.5px; }
+  .rule-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  .rule-grid .full { grid-column: 1 / -1; }
+  .hint { font-size: 11.5px; color: var(--muted); margin: -8px 0 14px; line-height:1.5; }
+  .empty { color: var(--muted); font-size: 13.5px; text-align:center; padding: 28px 0; }
+  .save-bar { position: sticky; bottom: 16px; padding-top: 4px; z-index: 5; }
+  .save-bar button.save { box-shadow: var(--shadow-pop), 0 4px 14px -4px var(--accent-glow); }
+
+  .sound-search { margin-bottom: 10px; }
+  .sound-count { font-size: 11.5px; color: var(--muted); margin: -6px 0 14px; font-weight:600; }
+
+  .sound-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px; align-items: stretch; }
+  .sound-card {
+    background: linear-gradient(160deg, #26282e, #1c1e22); border:1px solid var(--border-soft); border-radius: var(--radius-md);
+    padding:14px; display:flex; flex-direction:column; gap:12px; transition: transform .15s, border-color .15s, box-shadow .15s;
+  }
+  .sound-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-pop); }
+  .sound-card-name {
+    font-size:13.5px; font-weight:700; line-height:1.4; height: 2.8em; word-break: break-word; color: #f1f2f5;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .sound-card-actions { display:flex; gap:6px; margin-top:auto; }
+  .sound-card-actions button {
+    flex: 0 0 auto; width: auto; padding: 8px 0; font-size:14px; border-radius: 8px;
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border-soft);
+  }
+  .sound-card-actions button.sc-play {
+    flex: 1 1 auto; background: linear-gradient(180deg, var(--accent2), var(--accent)); color:white; font-weight:700; border: none;
+    box-shadow: 0 2px 8px -2px var(--accent-glow);
+  }
+  .sound-card-actions button.sc-play:hover { filter: brightness(1.1); }
+  .sound-card-actions button.sc-icon { flex: 0 0 34px; }
+  .sound-card-actions button.sc-icon:hover { background: var(--panel-hover); border-color: #4a4d54; }
+  .sound-card-actions button.sc-danger:hover { color:#f23843; background:#f2384322; border-color:#f2384355; }
+  .sound-card-actions button:disabled { opacity:.5; cursor:default; }
+
+  .dropzone { border: 1.5px dashed var(--border); border-radius: var(--radius-md); padding: 16px; margin-bottom: 14px; transition: border-color .15s, background .15s; text-align:center; }
+  .dropzone.drag-over { border-color: var(--accent); background: #5865f214; }
+
+  .batch-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; background:var(--panel2); border:1px solid var(--border-soft); border-radius:8px; padding:6px 8px; }
+  .batch-row input[type=text] { margin-bottom:0; flex:1; }
+  .batch-row .filename { font-size:11px; color:var(--muted); flex:0 0 auto; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .batch-row .sound-preview, .batch-row .sound-x { position:static; width:28px; height:28px; flex:0 0 auto; background:transparent; color:var(--muted); border-radius:6px; font-size:13px; font-weight:700; padding:0; }
+  .batch-row .sound-preview:hover { color:var(--accent); background:#5865f222; }
+  .batch-row .sound-x:hover { color:#f23843; background:#f2384322; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+    <h1>🎯 Trigger Bot</h1>
+    <form method="POST" action="/logout"><button type="submit" class="add" style="width:auto; padding:8px 14px; font-size:12.5px; margin-bottom:0;">Log out</button></form>
+  </div>
+  <div class="sub" id="guildLine">Connecting…</div>
+
+  <div class="card">
+    <div class="toggle-row" style="margin-bottom:0;">
+      <div style="font-weight:700; font-size:14.5px; display:flex; align-items:center; gap:10px;">Bot active <span class="pill off" id="statusPill">OFF</span></div>
+      <label class="switch">
+        <input type="checkbox" id="enabledToggle" />
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">
+      <div>
+        <h2>📜 Rules</h2>
+        <div class="desc">Fires a reply when a message matches a trigger.</div>
+      </div>
+    </div>
+    <button class="add" id="addRuleBtn">+ Add rule</button>
+    <div id="rulesList"></div>
+    <div class="empty" id="emptyMsg" style="display:none;">No rules yet — add one above.</div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">
+      <div>
+        <h2>🔊 Soundboard</h2>
+        <div class="desc">Play clips live into a voice channel, or preview them locally.</div>
+      </div>
+    </div>
+    <div style="background:var(--panel2); border:1px solid var(--border-soft); border-radius:var(--radius-md); padding:16px; margin-bottom:18px;">
+      <label>Play into</label>
+      <select id="soundTargetSelect"><option value="">— pick a user or voice channel —</option></select>
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <button class="add" id="soundJoinBtn" type="button" style="margin-bottom:0; flex:1; width:auto;">🔊 Join</button>
+        <button class="add" id="soundLeaveBtn" type="button" style="margin-bottom:0; flex:1; width:auto;" disabled>🚪 Leave</button>
+        <button class="add" id="soundStopBtn" type="button" style="margin-bottom:0; flex:1; width:auto; background:#f2384322; color:#f23843; border-color:#f2384333;" disabled>⏹ Stop</button>
+      </div>
+      <div id="voiceStatusLine" class="hint" style="margin:0 0 12px;">Not connected to a voice channel.</div>
+      <div class="toggle-row" style="margin-bottom:0;">
+        <div style="font-size:13px;">Stay connected after playing</div>
+        <label class="switch">
+          <input type="checkbox" id="soundStayToggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+    <label>Add clips (mp3 / wav / ogg / m4a, max 10MB each)</label>
+    <div id="soundDropzone" class="dropzone">
+      <input type="file" id="soundFileInput" accept=".mp3,.wav,.ogg,.m4a" multiple style="width:100%; color:var(--text);" />
+      <div class="hint" style="margin:8px 0 0;">...or drag and drop one or more files here (a whole folder works too). New clips are automatically volume-normalized so they're not painfully loud.</div>
+    </div>
+    <button class="add" id="soundNormalizeAllBtn" type="button">🔉 Fix volume on all existing clips</button>
+    <div id="soundPreviewRow" style="display:none;">
+      <audio id="soundPreviewPlayer" controls style="width:100%; margin-bottom:12px;"></audio>
+      <label>Save as</label>
+      <input type="text" id="soundNameInput" placeholder="e.g. airhorn" />
+      <button class="add" id="soundSaveBtn" type="button" style="margin-bottom:16px;">Save to soundboard</button>
+    </div>
+    <div id="soundBatchRow" style="display:none;">
+      <label>Name each clip before saving</label>
+      <div id="soundBatchList"></div>
+      <div style="display:flex; gap:8px; margin-bottom:16px;">
+        <button class="save" id="soundBatchSaveBtn" type="button" style="flex:1;">Save all clips</button>
+        <button class="add" id="soundBatchCancelBtn" type="button" style="width:auto; padding:10px 16px;">Cancel</button>
+      </div>
+    </div>
+    <div id="soundBatchStatus" class="hint" style="display:none; margin:0 0 14px;"></div>
+    <input type="text" id="soundSearchInput" class="sound-search" placeholder="🔍 Search clips by name…" />
+    <div class="sound-count" id="soundCount"></div>
+    <div id="soundGrid" class="sound-grid"></div>
+    <audio id="soundPlayerHidden" style="display:none;"></audio>
+    <div class="empty" id="soundEmptyMsg" style="display:none;">No clips yet — add some above.</div>
+    <div class="empty" id="soundNoMatchMsg" style="display:none;">No clips match your search.</div>
+  </div>
+
+  <div class="save-bar">
+    <button class="save" id="saveBtn">Save settings</button>
+  </div>
+
+  <div class="card">
+    <div class="section-head">
+      <div>
+        <h2>📋 Activity log</h2>
+        <div class="desc">Live feed of rule fires, uploads, and voice actions.</div>
+      </div>
+    </div>
+    <div class="log" id="logBox"><div>Waiting for events…</div></div>
+  </div>
+</div>
+
+<script>
+  const guildLine = document.getElementById('guildLine');
+  const enabledToggle = document.getElementById('enabledToggle');
+  const statusPill = document.getElementById('statusPill');
+  const rulesList = document.getElementById('rulesList');
+  const emptyMsg = document.getElementById('emptyMsg');
+  const addRuleBtn = document.getElementById('addRuleBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const logBox = document.getElementById('logBox');
+  const soundGrid = document.getElementById('soundGrid');
+  const soundEmptyMsg = document.getElementById('soundEmptyMsg');
+  const soundNoMatchMsg = document.getElementById('soundNoMatchMsg');
+  const soundSearchInput = document.getElementById('soundSearchInput');
+  const soundCount = document.getElementById('soundCount');
+  const soundTargetSelect = document.getElementById('soundTargetSelect');
+  const soundFileInput = document.getElementById('soundFileInput');
+  const soundPreviewRow = document.getElementById('soundPreviewRow');
+  const soundPreviewPlayer = document.getElementById('soundPreviewPlayer');
+  const soundNameInput = document.getElementById('soundNameInput');
+  const soundSaveBtn = document.getElementById('soundSaveBtn');
+  const soundPlayerHidden = document.getElementById('soundPlayerHidden');
+  const soundDropzone = document.getElementById('soundDropzone');
+  const soundBatchStatus = document.getElementById('soundBatchStatus');
+  const soundBatchRow = document.getElementById('soundBatchRow');
+  const soundBatchList = document.getElementById('soundBatchList');
+  const soundBatchSaveBtn = document.getElementById('soundBatchSaveBtn');
+  const soundBatchCancelBtn = document.getElementById('soundBatchCancelBtn');
+  const soundStopBtn = document.getElementById('soundStopBtn');
+  const soundNormalizeAllBtn = document.getElementById('soundNormalizeAllBtn');
+  const soundJoinBtn = document.getElementById('soundJoinBtn');
+  const soundLeaveBtn = document.getElementById('soundLeaveBtn');
+  const soundStayToggle = document.getElementById('soundStayToggle');
+  const voiceStatusLine = document.getElementById('voiceStatusLine');
+
+  let pendingSoundFile = null;
+  let pendingSoundUrl = null;
+
+  let members = [];
+  let channels = [];
+  let voiceChannels = [];
+  let rules = [];
+  let sounds = [];
+  let botEnabled = false;
+  let ttsLangs = ['en'];
+
+  const LANG_LABELS = {
+    en: 'English', 'en-US': 'English (US)', 'en-GB': 'English (UK)', 'en-AU': 'English (Australia)', 'en-IN': 'English (India)',
+    es: 'Spanish', 'es-ES': 'Spanish (Spain)', fr: 'French', 'fr-FR': 'French (France)', de: 'German',
+    it: 'Italian', pt: 'Portuguese', 'pt-BR': 'Portuguese (Brazil)', ru: 'Russian', ja: 'Japanese', ko: 'Korean',
+    'zh-CN': 'Chinese (Mandarin)', 'zh-TW': 'Chinese (Taiwan)', ar: 'Arabic', hi: 'Hindi', nl: 'Dutch',
+    pl: 'Polish', tr: 'Turkish', vi: 'Vietnamese', th: 'Thai', id: 'Indonesian', sv: 'Swedish',
+    el: 'Greek', ro: 'Romanian', cy: 'Welsh',
+  };
+  function langLabel(code) {
+    return LANG_LABELS[code] || code;
+  }
+  function isSpoken(replyType) {
+    return replyType === 'tts' || replyType === 'voice';
+  }
+  function isSoundboard(replyType) {
+    return replyType === 'soundboardAttachment' || replyType === 'soundboardVoice';
+  }
+  function needsTextChannel(replyType) {
+    return replyType !== 'voice' && replyType !== 'soundboardVoice';
+  }
+
+  function uid() {
+    return 'r-' + Math.random().toString(36).slice(2, 10);
+  }
+
+  function makeRule() {
+    return {
+      id: uid(),
+      name: 'New rule',
+      enabled: true,
+      targetUserId: '',
+      triggerType: 'number',
+      triggerKeyword: '',
+      channelId: '',
+      replyType: 'digit',
+      replyText: '',
+      ttsLang: 'en',
+      ttsSlow: false,
+      soundId: '',
+      voiceChannelId: '',
+    };
+  }
+
+  function optionList(items, labelFn, selectedId, noneLabel) {
+    return `<option value="">${noneLabel}</option>` +
+      items.map(i => `<option value="${i.id}" ${i.id === selectedId ? 'selected' : ''}>${labelFn(i)}</option>`).join('');
+  }
+
+  function renderRules() {
+    emptyMsg.style.display = rules.length ? 'none' : 'block';
+    rulesList.innerHTML = rules.map((rule, idx) => `
+      <div class="rule" data-idx="${idx}">
+        <div class="rule-head">
+          <label class="switch" style="margin:0;">
+            <input type="checkbox" class="f-enabled" ${rule.enabled ? 'checked' : ''} />
+            <span class="slider"></span>
+          </label>
+          <input type="text" class="f-name" value="${rule.name.replace(/"/g, '&quot;')}" placeholder="Rule name" />
+          <button class="remove f-remove" type="button">Remove</button>
+        </div>
+        <div class="rule-grid">
+          <div>
+            <label>Watch this user</label>
+            <select class="f-targetUserId">${optionList(members, m => m.nickname ? `${m.nickname} (${m.tag})` : m.tag, rule.targetUserId, '— all users —')}</select>
+          </div>
+          <div>
+            <label>Trigger on</label>
+            <select class="f-triggerType">
+              <option value="number" ${rule.triggerType === 'number' ? 'selected' : ''}>Only plain numbers (e.g. "42")</option>
+              <option value="any" ${rule.triggerType === 'any' ? 'selected' : ''}>Any message at all</option>
+              <option value="contains" ${rule.triggerType === 'contains' ? 'selected' : ''}>Message contains a keyword</option>
+            </select>
+          </div>
+          <div class="full f-keywordRow" style="display:${rule.triggerType === 'contains' ? 'block' : 'none'};">
+            <label>Keyword to match (case-insensitive)</label>
+            <input type="text" class="f-triggerKeyword" value="${(rule.triggerKeyword || '').replace(/"/g, '&quot;')}" placeholder="e.g. sus" />
+          </div>
+          <div>
+            <label>Reply type</label>
+            <select class="f-replyType">
+              <option value="digit" ${rule.replyType === 'digit' ? 'selected' : ''}>Random digit</option>
+              <option value="text" ${rule.replyType === 'text' ? 'selected' : ''}>Custom text</option>
+              <option value="tts" ${rule.replyType === 'tts' ? 'selected' : ''}>TTS audio attachment</option>
+              <option value="voice" ${rule.replyType === 'voice' ? 'selected' : ''}>Speak in voice channel</option>
+              <option value="soundboardAttachment" ${rule.replyType === 'soundboardAttachment' ? 'selected' : ''}>Send sound effect (MP3)</option>
+              <option value="soundboardVoice" ${rule.replyType === 'soundboardVoice' ? 'selected' : ''}>Play sound effect in voice channel</option>
+            </select>
+          </div>
+          <div class="f-channelRow" style="display:${needsTextChannel(rule.replyType) ? 'block' : 'none'};">
+            <label>Reply in this channel</label>
+            <select class="f-channelId">${optionList(channels, c => `#${c.name}`, rule.channelId, '— same channel as trigger —')}</select>
+          </div>
+          <div class="f-voiceChannelRow" style="display:${rule.replyType === 'soundboardVoice' ? 'block' : 'none'};">
+            <label>Voice channel to play in</label>
+            <select class="f-voiceChannelId">${optionList(voiceChannels, c => c.name, rule.voiceChannelId, '— pick a voice channel —')}</select>
+          </div>
+          <div class="full f-soundIdRow" style="display:${isSoundboard(rule.replyType) ? 'block' : 'none'};">
+            <label>Sound effect</label>
+            <select class="f-soundId">${optionList(sounds, s => s.name, rule.soundId, sounds.length ? '— pick a clip —' : '— no clips saved yet —')}</select>
+          </div>
+          <div class="full f-replyTextRow" style="display:${(rule.replyType === 'digit' || isSoundboard(rule.replyType)) ? 'none' : 'block'};">
+            <label id="f-replyTextLabel">${replyTextLabel(rule.replyType)}</label>
+            <input type="text" class="f-replyText" value="${(rule.replyText || '').replace(/"/g, '&quot;')}" placeholder="${replyTextPlaceholder(rule.replyType)}" />
+          </div>
+          <div class="f-voiceLangRow" style="display:${isSpoken(rule.replyType) ? 'block' : 'none'};">
+            <label>Voice language / accent</label>
+            <select class="f-ttsLang">${ttsLangs.map(code => `<option value="${code}" ${code === rule.ttsLang ? 'selected' : ''}>${langLabel(code)}</option>`).join('')}</select>
+          </div>
+          <div class="f-voiceSlowRow" style="display:${isSpoken(rule.replyType) ? 'flex' : 'none'}; align-items:center; gap:8px; margin-top:4px; margin-bottom:14px;">
+            <label class="switch" style="margin:0;">
+              <input type="checkbox" class="f-ttsSlow" ${rule.ttsSlow ? 'checked' : ''} />
+              <span class="slider"></span>
+            </label>
+            <span style="font-size:13px;">Speak slowly (robotic)</span>
+          </div>
+          ${rule.replyType === 'voice' ? '<div class="full hint">Joins the triggering user in their current voice channel, speaks this line out loud, then leaves. If they are not in a voice channel, the rule is skipped.</div>' : ''}
+          ${rule.replyType === 'soundboardVoice' ? '<div class="full hint">Joins the voice channel picked above and plays the chosen clip, then leaves (unless the bot is already set to stay connected). If no clip or channel is picked, the rule is skipped.</div>' : ''}
+        </div>
+      </div>
+    `).join('');
+
+    rulesList.querySelectorAll('.rule').forEach((el) => {
+      const idx = Number(el.dataset.idx);
+      const rule = rules[idx];
+
+      el.querySelector('.f-enabled').addEventListener('change', (e) => { rule.enabled = e.target.checked; });
+      el.querySelector('.f-name').addEventListener('input', (e) => { rule.name = e.target.value; });
+      el.querySelector('.f-targetUserId').addEventListener('change', (e) => { rule.targetUserId = e.target.value; });
+      el.querySelector('.f-channelId').addEventListener('change', (e) => { rule.channelId = e.target.value; });
+      el.querySelector('.f-triggerKeyword').addEventListener('input', (e) => { rule.triggerKeyword = e.target.value; });
+      el.querySelector('.f-replyText').addEventListener('input', (e) => { rule.replyText = e.target.value; });
+      el.querySelector('.f-ttsLang').addEventListener('change', (e) => { rule.ttsLang = e.target.value; });
+      el.querySelector('.f-ttsSlow').addEventListener('change', (e) => { rule.ttsSlow = e.target.checked; });
+      el.querySelector('.f-soundId').addEventListener('change', (e) => { rule.soundId = e.target.value; });
+      el.querySelector('.f-voiceChannelId').addEventListener('change', (e) => { rule.voiceChannelId = e.target.value; });
+
+      el.querySelector('.f-triggerType').addEventListener('change', (e) => {
+        rule.triggerType = e.target.value;
+        el.querySelector('.f-keywordRow').style.display = rule.triggerType === 'contains' ? 'block' : 'none';
+      });
+
+      el.querySelector('.f-replyType').addEventListener('change', (e) => {
+        rule.replyType = e.target.value;
+        renderRules();
+      });
+
+      el.querySelector('.f-remove').addEventListener('click', () => {
+        rules.splice(idx, 1);
+        renderRules();
+      });
+    });
+  }
+
+  function replyTextLabel(replyType) {
+    if (replyType === 'voice') return 'What to say (leave empty for a spoken random digit)';
+    if (replyType === 'tts') return 'What to say (leave empty for a spoken random digit)';
+    return 'Custom reply (leave empty for a random single digit)';
+  }
+  function replyTextPlaceholder(replyType) {
+    if (replyType === 'voice' || replyType === 'tts') return 'e.g. nice try';
+    return 'e.g. nice try';
+  }
+
+  function updatePreviewIcons() {
+    soundGrid.querySelectorAll('.f-sound-preview').forEach((btn) => {
+      const isPlayingThis = !soundPlayerHidden.paused && soundPlayerHidden.dataset.playingId === btn.dataset.id;
+      btn.textContent = isPlayingThis ? '⏸' : '🎧';
+      btn.title = isPlayingThis ? 'Stop preview' : 'Preview';
+    });
+  }
+  soundPlayerHidden.addEventListener('play', updatePreviewIcons);
+  soundPlayerHidden.addEventListener('pause', updatePreviewIcons);
+  soundPlayerHidden.addEventListener('ended', updatePreviewIcons);
+
+  function renderSoundTargetSelect() {
+    const selected = soundTargetSelect.value;
+    const userOptions = members.map(m => `<option value="u:${m.id}">${(m.nickname ? `${m.nickname} (${m.tag})` : m.tag).replace(/</g, '&lt;')}</option>`).join('');
+    const channelOptions = voiceChannels.map(c => `<option value="c:${c.id}">${c.name.replace(/</g, '&lt;')}</option>`).join('');
+    soundTargetSelect.innerHTML = `<option value="">— pick a user or voice channel —</option>` +
+      (userOptions ? `<optgroup label="Users (join wherever they are)">${userOptions}</optgroup>` : '') +
+      (channelOptions ? `<optgroup label="Voice channels">${channelOptions}</optgroup>` : '');
+    const stillValid = [...soundTargetSelect.options].some(o => o.value === selected);
+    if (stillValid) soundTargetSelect.value = selected;
+  }
+
+  function currentSoundTarget() {
+    const value = soundTargetSelect.value;
+    if (!value) return null;
+    const [kind, id] = [value.slice(0, 2), value.slice(2)];
+    if (kind === 'u:') return { targetUserId: id };
+    if (kind === 'c:') return { targetChannelId: id };
+    return null;
+  }
+
+  function renderSounds() {
+    soundEmptyMsg.style.display = sounds.length ? 'none' : 'block';
+
+    const query = soundSearchInput.value.trim().toLowerCase();
+    const visible = query ? sounds.filter(s => s.name.toLowerCase().includes(query)) : sounds;
+
+    soundCount.textContent = sounds.length
+      ? (query ? `Showing ${visible.length} of ${sounds.length} clips` : `${sounds.length} clip${sounds.length === 1 ? '' : 's'}`)
+      : '';
+    soundNoMatchMsg.style.display = (sounds.length && query && !visible.length) ? 'block' : 'none';
+
+    soundGrid.innerHTML = visible.map((s) => `
+      <div class="sound-card" data-id="${s.id}">
+        <div class="sound-card-name" title="${s.name.replace(/"/g, '&quot;')}">${s.name.replace(/</g, '&lt;')}</div>
+        <div class="sound-card-actions">
+          <button class="sc-play f-sound-play" data-id="${s.id}" type="button" title="Play in Discord">▶ Play</button>
+          <button class="sc-icon f-sound-preview" data-id="${s.id}" type="button" title="Preview">🎧</button>
+          <button class="sc-icon f-sound-rename" data-id="${s.id}" type="button" title="Rename">✏️</button>
+          <button class="sc-icon sc-danger f-sound-remove" data-id="${s.id}" type="button" title="Remove">×</button>
+        </div>
+      </div>
+    `).join('');
+
+    soundGrid.querySelectorAll('.f-sound-play').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const target = currentSoundTarget();
+        if (!target) { alert('Pick a user or voice channel to play into first.'); return; }
+        btn.disabled = true;
+        try {
+          const res = await fetch(`/api/sounds/${encodeURIComponent(btn.dataset.id)}/play`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...target, stay: soundStayToggle.checked }),
+          });
+          const data = await res.json();
+          if (!res.ok) { alert(data.error || 'Could not play that clip.'); return; }
+          soundStopBtn.disabled = false; // don't wait for the next poll - it's playing now
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+
+    soundGrid.querySelectorAll('.f-sound-preview').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const url = `/media/sounds/${encodeURIComponent(btn.dataset.id)}`;
+        const isThisOnePlaying = !soundPlayerHidden.paused && soundPlayerHidden.dataset.playingId === btn.dataset.id;
+        if (isThisOnePlaying) {
+          soundPlayerHidden.pause();
+          return;
+        }
+        soundPlayerHidden.src = url;
+        soundPlayerHidden.dataset.playingId = btn.dataset.id;
+        soundPlayerHidden.play();
+      });
+    });
+
+    soundGrid.querySelectorAll('.f-sound-rename').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const current = sounds.find(s => s.id === btn.dataset.id);
+        const newName = prompt('Rename clip', current ? current.name : '');
+        if (newName === null) return;
+        const trimmed = newName.trim();
+        if (!trimmed) return;
+        const res = await fetch(`/api/sounds/${encodeURIComponent(btn.dataset.id)}/rename`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: trimmed }),
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Rename failed.'); return; }
+        sounds = data.sounds;
+        renderSounds();
+      });
+    });
+
+    soundGrid.querySelectorAll('.f-sound-remove').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        await fetch(`/api/sounds/${encodeURIComponent(btn.dataset.id)}`, { method: 'DELETE' });
+        sounds = sounds.filter(s => s.id !== btn.dataset.id);
+        renderSounds();
+      });
+    });
+
+    updatePreviewIcons();
+  }
+
+  soundSearchInput.addEventListener('input', renderSounds);
+
+  function isAudioFile(file) {
+    return /\.(mp3|wav|ogg|m4a)$/i.test(file.name);
+  }
+
+  async function uploadOneSound(file, name) {
+    const body = new FormData();
+    body.append('name', name);
+    body.append('sound', file);
+    const res = await fetch('/api/sounds', { method: 'POST', body });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Upload failed for "${file.name}"`);
+    return data.sounds;
+  }
+
+  async function handleIncomingFiles(fileList) {
+    const files = Array.from(fileList).filter(isAudioFile);
+    if (!files.length) {
+      if (fileList.length) alert('No supported audio files found (mp3/wav/ogg/m4a).');
+      return;
+    }
+
+    if (files.length === 1) {
+      const file = files[0];
+      pendingSoundFile = file;
+      if (pendingSoundUrl) URL.revokeObjectURL(pendingSoundUrl);
+      pendingSoundUrl = URL.createObjectURL(file);
+      soundPreviewPlayer.src = pendingSoundUrl;
+      soundNameInput.value = file.name.replace(/\.[^./]+$/, '');
+      soundPreviewRow.style.display = 'block';
+      return;
+    }
+
+    // multiple files: let the user rename each one before anything is uploaded
+    clearPendingBatch();
+    pendingBatch = files.map((file) => ({
+      file,
+      name: file.name.replace(/\.[^./]+$/, ''),
+      url: URL.createObjectURL(file),
+    }));
+    renderBatchList();
+    soundBatchRow.style.display = 'block';
+  }
+
+  let pendingBatch = [];
+
+  function clearPendingBatch() {
+    pendingBatch.forEach((entry) => URL.revokeObjectURL(entry.url));
+    pendingBatch = [];
+  }
+
+  function renderBatchList() {
+    soundBatchList.innerHTML = pendingBatch.map((entry, idx) => `
+      <div class="batch-row" data-idx="${idx}">
+        <span class="filename" title="${entry.file.name.replace(/"/g, '&quot;')}">${entry.file.name.replace(/</g, '&lt;')}</span>
+        <input type="text" class="b-name" value="${entry.name.replace(/"/g, '&quot;')}" placeholder="e.g. airhorn" />
+        <button class="sound-preview b-preview" type="button" title="Preview">🎧</button>
+        <button class="sound-x b-remove" type="button" title="Remove from batch">×</button>
+      </div>
+    `).join('');
+
+    soundBatchList.querySelectorAll('.batch-row').forEach((row) => {
+      const idx = Number(row.dataset.idx);
+      row.querySelector('.b-name').addEventListener('input', (e) => { pendingBatch[idx].name = e.target.value; });
+      row.querySelector('.b-preview').addEventListener('click', () => {
+        soundPlayerHidden.src = pendingBatch[idx].url;
+        soundPlayerHidden.play();
+      });
+      row.querySelector('.b-remove').addEventListener('click', () => {
+        URL.revokeObjectURL(pendingBatch[idx].url);
+        pendingBatch.splice(idx, 1);
+        if (!pendingBatch.length) {
+          soundBatchRow.style.display = 'none';
+          soundFileInput.value = '';
+        }
+        renderBatchList();
+      });
+    });
+  }
+
+  soundBatchCancelBtn.addEventListener('click', () => {
+    clearPendingBatch();
+    soundBatchRow.style.display = 'none';
+    soundFileInput.value = '';
+  });
+
+  soundBatchSaveBtn.addEventListener('click', async () => {
+    if (!pendingBatch.length) return;
+    soundBatchSaveBtn.disabled = true;
+    soundBatchCancelBtn.disabled = true;
+    soundBatchStatus.style.display = 'block';
+    const total = pendingBatch.length;
+    const errors = [];
+    let done = 0;
+    for (const entry of pendingBatch) {
+      soundBatchStatus.textContent = `Saving ${done + 1} of ${total}: ${entry.name || entry.file.name}…`;
+      try {
+        sounds = await uploadOneSound(entry.file, entry.name.trim() || entry.file.name);
+        renderSounds();
+      } catch (err) {
+        errors.push(err.message);
+      }
+      done++;
+    }
+    soundBatchStatus.textContent = `Added ${total - errors.length} of ${total} clip(s).`;
+    setTimeout(() => { soundBatchStatus.style.display = 'none'; }, 4000);
+    if (errors.length) alert(errors.join('\n'));
+
+    clearPendingBatch();
+    soundBatchRow.style.display = 'none';
+    soundFileInput.value = '';
+    soundBatchSaveBtn.disabled = false;
+    soundBatchCancelBtn.disabled = false;
+  });
+
+  soundFileInput.addEventListener('change', () => {
+    handleIncomingFiles(soundFileInput.files);
+  });
+
+  ['dragenter', 'dragover'].forEach((evt) => {
+    soundDropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      soundDropzone.classList.add('drag-over');
+    });
+  });
+  ['dragleave', 'drop'].forEach((evt) => {
+    soundDropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      soundDropzone.classList.remove('drag-over');
+    });
+  });
+  soundDropzone.addEventListener('drop', (e) => {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+      handleIncomingFiles(e.dataTransfer.files);
+    }
+  });
+
+  soundSaveBtn.addEventListener('click', async () => {
+    if (!pendingSoundFile) return;
+    soundSaveBtn.disabled = true;
+    soundSaveBtn.textContent = 'Saving…';
+    try {
+      sounds = await uploadOneSound(pendingSoundFile, soundNameInput.value.trim() || pendingSoundFile.name);
+      renderSounds();
+      soundFileInput.value = '';
+      soundPreviewRow.style.display = 'none';
+      if (pendingSoundUrl) URL.revokeObjectURL(pendingSoundUrl);
+      pendingSoundFile = null;
+      pendingSoundUrl = null;
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      soundSaveBtn.disabled = false;
+      soundSaveBtn.textContent = 'Save to soundboard';
+    }
+  });
+
+  async function refresh() {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+
+    if (!data.ready) {
+      guildLine.textContent = 'Bot not connected to a server yet — check the console.';
+      return;
+    }
+
+    guildLine.textContent = `Connected to: ${data.guildName}`;
+    members = data.members;
+    channels = data.channels;
+    voiceChannels = data.voiceChannels || [];
+    ttsLangs = data.ttsLangs && data.ttsLangs.length ? data.ttsLangs : ttsLangs;
+    sounds = data.sounds || [];
+    botEnabled = !!data.config.enabled;
+    rules = (data.config.rules || []).map(r => ({ ...r }));
+    soundStopBtn.disabled = !data.isPlaying;
+    updateVoiceStatusLine(data.connectedChannel);
+
+    enabledToggle.checked = botEnabled;
+    statusPill.textContent = botEnabled ? 'ON' : 'OFF';
+    statusPill.className = 'pill ' + (botEnabled ? 'on' : 'off');
+
+    renderRules();
+    renderSoundTargetSelect();
+    renderSounds();
+
+    logBox.innerHTML = data.log.length
+      ? data.log.map(l => `<div>${l}</div>`).join('')
+      : '<div>Waiting for events…</div>';
+  }
+
+  addRuleBtn.addEventListener('click', () => {
+    rules.push(makeRule());
+    renderRules();
+  });
+
+  saveBtn.addEventListener('click', async () => {
+    const body = { enabled: enabledToggle.checked, rules };
+    await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    saveBtn.textContent = 'Saved ✓';
+    setTimeout(() => (saveBtn.textContent = 'Save settings'), 1200);
+    refresh();
+  });
+
+  async function refreshLogOnly() {
+    try {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      if (!data.ready) return;
+      logBox.innerHTML = data.log.length
+        ? data.log.map(l => `<div>${l}</div>`).join('')
+        : '<div>Waiting for events…</div>';
+
+      // soundboard has no in-progress edit state, so it's safe to live-refresh on every poll
+      const newSounds = data.sounds || [];
+      if (JSON.stringify(newSounds) !== JSON.stringify(sounds)) {
+        sounds = newSounds;
+        renderSounds();
+      }
+      soundStopBtn.disabled = !data.isPlaying;
+      updateVoiceStatusLine(data.connectedChannel);
+    } catch {
+      // ignore transient poll failures
+    }
+  }
+
+  function updateVoiceStatusLine(connectedChannel) {
+    if (connectedChannel) {
+      voiceStatusLine.textContent = `🔊 Connected to "${connectedChannel.channelName}" and staying.`;
+      soundLeaveBtn.disabled = false;
+    } else {
+      voiceStatusLine.textContent = 'Not connected to a voice channel.';
+      soundLeaveBtn.disabled = true;
+    }
+  }
+
+  soundStopBtn.addEventListener('click', async () => {
+    soundStopBtn.disabled = true;
+    try {
+      await fetch('/api/voice/stop', { method: 'POST' });
+    } finally {
+      refreshLogOnly();
+    }
+  });
+
+  soundJoinBtn.addEventListener('click', async () => {
+    const target = currentSoundTarget();
+    if (!target) { alert('Pick a user or voice channel to join first.'); return; }
+    soundJoinBtn.disabled = true;
+    try {
+      const res = await fetch('/api/voice/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(target),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Could not join that channel.'); return; }
+    } finally {
+      soundJoinBtn.disabled = false;
+      refreshLogOnly();
+    }
+  });
+
+  soundLeaveBtn.addEventListener('click', async () => {
+    soundLeaveBtn.disabled = true;
+    try {
+      await fetch('/api/voice/leave', { method: 'POST' });
+    } finally {
+      refreshLogOnly();
+    }
+  });
+
+  soundNormalizeAllBtn.addEventListener('click', async () => {
+    if (!confirm(`Re-encode all ${sounds.length} existing clip(s) to a safer, consistent volume? This replaces them in place.`)) return;
+    soundNormalizeAllBtn.disabled = true;
+    soundBatchStatus.style.display = 'block';
+    soundBatchStatus.textContent = `Fixing volume on ${sounds.length} clip(s)… this can take a bit.`;
+    try {
+      const res = await fetch('/api/sounds/normalize-all', { method: 'POST' });
+      const data = await res.json();
+      sounds = data.sounds || sounds;
+      renderSounds();
+      soundBatchStatus.textContent = `Fixed volume on ${data.done} of ${data.total} clip(s).`;
+      if (data.errors && data.errors.length) alert(data.errors.join('\n'));
+    } catch (err) {
+      soundBatchStatus.textContent = 'Volume fix failed.';
+    } finally {
+      setTimeout(() => { soundBatchStatus.style.display = 'none'; }, 5000);
+      soundNormalizeAllBtn.disabled = false;
+    }
+  });
+
+  refresh();
+  setInterval(refreshLogOnly, 4000); // keep the log fresh without clobbering in-progress rule edits
+</script>
+</body>
+</html>
