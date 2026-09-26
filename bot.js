@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const {
-  Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder,
+  Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, ChannelType,
 } = require('discord.js');
 const session = require('express-session');
 const {
@@ -31,7 +31,6 @@ const CONFIG_PATH = path.join(__dirname, 'config.json');
 const SOUNDS_DIR = path.join(__dirname, 'sounds');
 const PORT = process.env.PORT || 3000;
 const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
-const OWNER_USER_IDS = (process.env.OWNER_USER_IDS || '').split(',').map((s) => s.trim()).filter(Boolean);
 const SOUND_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.m4a'];
 // EBU R128 loudness target: hearable/audible without screeching peaks or clipping.
 const LOUDNESS_FILTER = 'loudnorm=I=-16:TP=-1.5:LRA=11';
@@ -514,14 +513,19 @@ async function playSoundForTarget(soundId, { targetUserId, targetChannelId, stay
 
 // ---------- slash commands ----------
 const slashCommands = [
-  new SlashCommandBuilder().setName('dashboard').setDescription('Get a one-time login link for the web dashboard (owner only)'),
-  new SlashCommandBuilder().setName('join').setDescription('Bot joins your current voice channel and stays connected'),
+  new SlashCommandBuilder().setName('dashboard').setDescription('Get a one-time login link for the web dashboard'),
+  new SlashCommandBuilder().setName('join').setDescription('Bot joins a voice channel and stays connected')
+    .addChannelOption((opt) => opt.setName('channel').setDescription('Which voice channel (default: the one you\'re in)').addChannelTypes(ChannelType.GuildVoice)),
   new SlashCommandBuilder().setName('leave').setDescription('Bot leaves the voice channel'),
   new SlashCommandBuilder().setName('stop').setDescription('Stop whatever the bot is currently playing'),
-  new SlashCommandBuilder().setName('play').setDescription('Play a soundboard clip in your voice channel')
-    .addStringOption((opt) => opt.setName('clip').setDescription('Which clip to play').setRequired(true).setAutocomplete(true)),
-  new SlashCommandBuilder().setName('say').setDescription('Speak a line out loud in your voice channel')
-    .addStringOption((opt) => opt.setName('text').setDescription('What to say').setRequired(true)),
+  new SlashCommandBuilder().setName('play').setDescription('Play a soundboard clip in a voice channel')
+    .addStringOption((opt) => opt.setName('clip').setDescription('Which clip to play').setRequired(true).setAutocomplete(true))
+    .addChannelOption((opt) => opt.setName('channel').setDescription('Which voice channel (default: the one you\'re in)').addChannelTypes(ChannelType.GuildVoice))
+    .addUserOption((opt) => opt.setName('user').setDescription('Play into whichever voice channel this user is currently in')),
+  new SlashCommandBuilder().setName('say').setDescription('Speak a line out loud in a voice channel')
+    .addStringOption((opt) => opt.setName('text').setDescription('What to say').setRequired(true))
+    .addChannelOption((opt) => opt.setName('channel').setDescription('Which voice channel (default: the one you\'re in)').addChannelTypes(ChannelType.GuildVoice))
+    .addUserOption((opt) => opt.setName('user').setDescription('Speak into whichever voice channel this user is currently in')),
 ].map((c) => c.toJSON());
 
 async function registerSlashCommands() {
@@ -538,21 +542,31 @@ async function registerSlashCommands() {
   }
 }
 
-function isOwner(userId, guild) {
-  if (OWNER_USER_IDS.length) return OWNER_USER_IDS.includes(userId);
-  return !!guild && guild.ownerId === userId;
-}
-
-async function sayInUserChannel(guild, userId, text) {
-  const member = await guild.members.fetch(userId).catch(() => null);
-  const voiceChannel = member && member.voice && member.voice.channel;
-  if (!voiceChannel) throw new Error('You need to be in a voice channel first.');
-
+async function sayInChannel(guild, voiceChannel, text, speakerLabel) {
   const buffer = await synthesizeSpeech(text, { lang: 'en', slow: false });
   queueInGuild(guild.id, () => playAudioInVoiceChannel(voiceChannel, () => Readable.from(buffer), {
-    onDone: () => addLog(`/say used by ${member.user.username} in "${voiceChannel.name}"`),
+    onDone: () => addLog(`/say used by ${speakerLabel} in "${voiceChannel.name}"`),
     onError: (err) => addLog(`ERROR in /say: ${err.message}`),
   }));
+}
+
+// shared by /join, /play, /say: explicit channel option wins, then the given user's current
+// channel, else the invoking member's own current channel
+async function resolveCommandVoiceChannel(interaction) {
+  const channelOpt = interaction.options.getChannel('channel');
+  if (channelOpt) return channelOpt;
+
+  const userOpt = interaction.options.getUser('user');
+  if (userOpt) {
+    const member = await interaction.guild.members.fetch(userOpt.id).catch(() => null);
+    const voiceChannel = member && member.voice && member.voice.channel;
+    if (!voiceChannel) throw new Error(`${userOpt.username} isn't in a voice channel.`);
+    return voiceChannel;
+  }
+
+  const ownChannel = interaction.member.voice.channel;
+  if (!ownChannel) throw new Error("You're not in a voice channel - join one, or pass a channel/user.");
+  return ownChannel;
 }
 
 client.on('interactionCreate', async (interaction) => {
@@ -574,10 +588,6 @@ client.on('interactionCreate', async (interaction) => {
 
   try {
     if (commandName === 'dashboard') {
-      if (!isOwner(interaction.user.id, guild)) {
-        await interaction.reply({ content: "You're not allowed to use this command.", ephemeral: true });
-        return;
-      }
       const token = issueDashboardToken();
       const url = `${PUBLIC_URL}/login?token=${token}`;
       await interaction.reply({ content: `🔗 One-time dashboard link (expires in 10 minutes, single use):\n${url}`, ephemeral: true });
@@ -585,9 +595,11 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (commandName === 'join') {
-      const voiceChannel = interaction.member.voice.channel;
-      if (!voiceChannel) {
-        await interaction.reply({ content: 'Join a voice channel first.', ephemeral: true });
+      let voiceChannel;
+      try {
+        voiceChannel = await resolveCommandVoiceChannel(interaction);
+      } catch (err) {
+        await interaction.reply({ content: err.message, ephemeral: true });
         return;
       }
       await joinAndStay(voiceChannel);
@@ -612,8 +624,9 @@ client.on('interactionCreate', async (interaction) => {
       const soundId = interaction.options.getString('clip', true);
       await interaction.deferReply({ ephemeral: true });
       try {
-        await playSoundForTarget(soundId, { targetUserId: interaction.user.id, stay: false });
-        await interaction.editReply('▶️ Playing.');
+        const voiceChannel = await resolveCommandVoiceChannel(interaction);
+        await playSoundForTarget(soundId, { targetChannelId: voiceChannel.id, stay: false });
+        await interaction.editReply(`▶️ Playing in "${voiceChannel.name}".`);
       } catch (err) {
         await interaction.editReply(`Couldn't play that: ${err.message}`);
       }
@@ -624,8 +637,9 @@ client.on('interactionCreate', async (interaction) => {
       const text = interaction.options.getString('text', true);
       await interaction.deferReply({ ephemeral: true });
       try {
-        await sayInUserChannel(guild, interaction.user.id, text);
-        await interaction.editReply('🗣️ Speaking now.');
+        const voiceChannel = await resolveCommandVoiceChannel(interaction);
+        await sayInChannel(guild, voiceChannel, text, interaction.user.username);
+        await interaction.editReply(`🗣️ Speaking in "${voiceChannel.name}".`);
       } catch (err) {
         await interaction.editReply(`Couldn't do that: ${err.message}`);
       }
@@ -643,14 +657,44 @@ client.on('interactionCreate', async (interaction) => {
 
 // ---------- dashboard web server ----------
 const app = express();
+app.set('trust proxy', 1); // WispByte/most hosts sit behind a proxy - needed for secure cookies to work correctly there
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'DENY'); // stop the dashboard being iframed for clickjacking
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 },
+  cookie: {
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    sameSite: 'lax', // blocks cross-site form/fetch submissions (CSRF) from other origins
+    secure: process.env.DASHBOARD_HTTPS === 'true', // set DASHBOARD_HTTPS=true once the dashboard is served over https
+  },
 }));
+
+// basic brute-force throttle on login attempts, keyed by IP
+const loginAttempts = new Map(); // ip -> { count, resetAt }
+function isRateLimited(ip) {
+  const entry = loginAttempts.get(ip);
+  const now = Date.now();
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 });
+    return false;
+  }
+  entry.count++;
+  return entry.count > 20; // 20 attempts per 15 minutes per IP - the password is a random 8+ char string, so this is about blocking blind bots, not stopping a real brute force
+}
+function passwordMatches(input) {
+  const a = Buffer.from(String(input));
+  const b = Buffer.from(DASHBOARD_PASSWORD);
+  if (a.length !== b.length) return false; // timingSafeEqual requires equal-length buffers
+  return crypto.timingSafeEqual(a, b);
+}
 
 function loginPageHtml(error) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Trigger Bot — Login</title>
@@ -694,7 +738,10 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', (req, res) => {
-  if (typeof req.body.password === 'string' && req.body.password === DASHBOARD_PASSWORD) {
+  if (isRateLimited(req.ip)) {
+    return res.status(429).send(loginPageHtml(false)).end();
+  }
+  if (typeof req.body.password === 'string' && passwordMatches(req.body.password)) {
     req.session.authed = true;
     return res.redirect('/');
   }
