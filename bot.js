@@ -699,24 +699,24 @@ function passwordMatches(input) {
 function loginPageHtml(error) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Trigger Bot — Login</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { --bg:#17181b; --panel:#26282d; --panel2:#1e2024; --accent:#5865f2; --accent2:#7983f5; --text:#e7e9ee; --muted:#95999f; --border:#33363c; }
+    :root { --bg:#000000; --panel:#0a0a0a; --panel2:#111111; --fg:#ededed; --fg-dim:#a1a1a1; --border:#2a2a2a; --border-hover:#454545; --red:#e5484d; }
     * { box-sizing:border-box; }
-    body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; font-family:"Inter",-apple-system,"Segoe UI",Roboto,sans-serif; background: radial-gradient(1200px 600px at 50% -10%, #23253099, transparent), #17181b; color:var(--text); }
-    .box { background:linear-gradient(180deg, var(--panel), var(--panel2)); border:1px solid var(--border); border-radius:16px; padding:32px; width:320px; box-shadow:0 8px 24px -12px #000000aa; }
-    h1 { font-size:20px; font-weight:800; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
-    p.sub { color:var(--muted); font-size:13px; margin:0 0 22px; }
-    label { display:block; font-size:11px; text-transform:uppercase; color:var(--muted); font-weight:700; letter-spacing:.06em; margin-bottom:7px; }
-    input { width:100%; padding:11px 13px; border-radius:9px; border:1px solid var(--border); background:var(--panel2); color:var(--text); font-size:14px; margin-bottom:16px; }
-    input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px #5865f255; }
-    button { width:100%; padding:11px; border-radius:9px; border:none; background:linear-gradient(180deg, var(--accent2), var(--accent)); color:white; font-weight:700; font-size:14px; cursor:pointer; }
-    button:hover { filter:brightness(1.08); }
-    .error { background:#f2384322; color:#f2384f; border:1px solid #f2384355; border-radius:8px; padding:10px 12px; font-size:12.5px; margin-bottom:16px; }
+    body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; font-family:"Geist",-apple-system,"Segoe UI",Roboto,sans-serif; background: var(--bg); color:var(--fg); }
+    .box { background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:28px; width:300px; }
+    h1 { font-size:15px; font-weight:600; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+    p.sub { color:var(--fg-dim); font-size:12.5px; margin:0 0 20px; }
+    label { display:block; font-size:12px; color:var(--fg-dim); font-weight:500; margin-bottom:6px; }
+    input { width:100%; padding:9px 12px; border-radius:6px; border:1px solid var(--border); background:var(--panel2); color:var(--fg); font-size:13px; margin-bottom:14px; }
+    input:focus { outline:none; border-color:var(--fg-dim); }
+    button { width:100%; padding:9px; border-radius:6px; border:1px solid var(--fg); background:var(--fg); color:#000; font-weight:600; font-size:13px; cursor:pointer; }
+    button:hover { background:#d0d0d0; }
+    .error { background:#e5484d14; color:var(--red); border:1px solid #e5484d40; border-radius:6px; padding:9px 12px; font-size:12px; margin-bottom:14px; }
   </style></head>
   <body>
     <div class="box">
-      <h1>🎯 Trigger Bot</h1>
+      <h1>◆ Trigger Bot</h1>
       <p class="sub">Sign in to manage rules, the soundboard, and voice.</p>
       ${error ? '<div class="error">Wrong password. Try again.</div>' : ''}
       <form method="POST" action="/login">
