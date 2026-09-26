@@ -29,8 +29,14 @@ const execFileAsync = promisify(execFile);
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const SOUNDS_DIR = path.join(__dirname, 'sounds');
-const PORT = process.env.PORT || 3000;
-const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+// Pterodactyl-based hosts (WispByte) inject SERVER_PORT into the container; fall back to
+// PORT for everything else, then a sane local default.
+const PORT = process.env.SERVER_PORT || process.env.PORT || 3000;
+const PUBLIC_URL = (
+  process.env.PUBLIC_URL
+  || (process.env.SERVER_IP ? `http://${process.env.SERVER_IP}:${PORT}` : null)
+  || `http://localhost:${PORT}`
+).replace(/\/$/, '');
 const SOUND_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.m4a'];
 // EBU R128 loudness target: hearable/audible without screeching peaks or clipping.
 const LOUDNESS_FILTER = 'loudnorm=I=-16:TP=-1.5:LRA=11';
@@ -673,7 +679,7 @@ app.use(session({
     maxAge: 7 * 24 * 60 * 60 * 1000,
     httpOnly: true,
     sameSite: 'lax', // blocks cross-site form/fetch submissions (CSRF) from other origins
-    secure: process.env.DASHBOARD_HTTPS === 'true', // set DASHBOARD_HTTPS=true once the dashboard is served over https
+    secure: PUBLIC_URL.startsWith('https'), // plain http hosts (most Pterodactyl panels) must keep this false or the cookie never gets sent
   },
 }));
 
@@ -924,5 +930,6 @@ app.post('/api/voice/stop', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Dashboard running on port ${PORT} (${PUBLIC_URL})`);
+  console.log(`Dashboard listening on 0.0.0.0:${PORT}`);
+  console.log(`Dashboard URL: ${PUBLIC_URL}`);
 });
